@@ -551,7 +551,7 @@ interface HTTPClient {
     suspend fun getDeviceData(): ClientDeviceData?
     suspend fun getCellData(): CellDataRoot?
     suspend fun getSimData(): SimDataRoot?
-    suspend fun setWifiData(newData: WifiConfig)
+    suspend fun setWifiData(newData: WifiConfig): Boolean
     suspend fun setLogin(newUsername: String, newPassword: String)
     suspend fun reboot()
 
@@ -574,8 +574,8 @@ interface HTTPClient {
                 GlobalModel.isLoading.value = true
             }
             block()
-        } catch (_: CancellationException) {
-            null
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Throwable) {
             GlobalModel.updateHttpError(e)
             null
@@ -636,16 +636,17 @@ interface HTTPClient {
                     return response
                 } else if (retryForLive && retryOnCodes.contains(response.status.value) && attempt < maxRetries) {
                     delay(2000)
-                    tryRequest(attempt + 1)
+                    return tryRequest(attempt + 1)
                 } else {
                     if (showError) response.setError()
                 }
-            } catch (_: CancellationException) {
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: HttpRequestTimeoutException) {
                 Exception(e).printStackTrace()
                 if (retryForLive && attempt < maxRetries) {
                     delay(2000)
-                    tryRequest(attempt + 1)
+                    return tryRequest(attempt + 1)
                 } else if (!isLogin) {
                     if (!waitForLive()) {
                         if (showError) {
@@ -980,8 +981,8 @@ private object NokiaClient : HTTPClient {
         }
     }
 
-    override suspend fun setWifiData(newData: WifiConfig) {
-        withLoader(true) {
+    override suspend fun setWifiData(newData: WifiConfig): Boolean {
+        return withLoader(true) {
             val nokiaConfig = SetWifiConfig(
                 paralist = newData.ssids?.map { ssid ->
                     SetSSIDConfig(
@@ -1006,12 +1007,13 @@ private object NokiaClient : HTTPClient {
             if (response?.status?.isSuccess() == true) {
                 delay(10000L)
 
-                waitForLive {
+                return@withLoader waitForLive {
                     httpClient.get(Endpoints.NokiaApi.wifiListing.createFullUrl())
                     true
                 }
             }
-        }
+            false
+        } ?: false
     }
 
     override suspend fun setLogin(newUsername: String, newPassword: String) {
@@ -1150,15 +1152,15 @@ private object UnifiedClient : HTTPClient {
         }
     }
 
-    override suspend fun setWifiData(newData: WifiConfig) {
-        withLoader(true) {
+    override suspend fun setWifiData(newData: WifiConfig): Boolean {
+        return withLoader(true) {
             httpClient.handleCatch {
                 post(Endpoints.CommonApiV1.setWifiConfig.createFullUrl()) {
                     contentType(ContentType.parse("application/json"))
                     setBody(newData)
                 }
-            }
-        }
+            } != null
+        } ?: false
     }
 
     override suspend fun setLogin(newUsername: String, newPassword: String) {

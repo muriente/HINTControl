@@ -29,6 +29,7 @@ import dev.zwander.common.components.PageGrid
 import dev.zwander.common.components.SSIDListLayout
 import dev.zwander.common.model.GlobalModel
 import dev.zwander.common.model.MainModel
+import dev.zwander.common.util.saveWifiAndReadBack
 import dev.zwander.compose.alertdialog.InWindowAlertDialog
 import dev.zwander.resources.common.MR
 import dev.zwander.resources.common.*
@@ -55,19 +56,42 @@ fun WifiConfigPage(
     var showingRadioWarning by remember {
         mutableStateOf(false)
     }
+    var saving by remember { mutableStateOf(false) }
+    var previousData by remember { mutableStateOf(data) }
+    var saveWarning by remember { mutableStateOf<String?>(null) }
+    val failedMessage = stringResource(MR.strings.wifi_save_failed)
+    val unverifiedMessage = stringResource(MR.strings.wifi_save_unverified)
+    val mismatchMessage = stringResource(MR.strings.wifi_save_radio_mismatch)
 
     fun save() {
+        if (saving) return
+        val requested = tempState ?: return
+        val client = GlobalModel.httpClient.value ?: return
+        saving = true
         scope.launch {
-            tempState?.let {
-                GlobalModel.httpClient.value?.setWifiData(it)
+            try {
+                val result = saveWifiAndReadBack(requested, client::setWifiData, client::getWifiData)
+                saveWarning = when {
+                    !result.accepted -> failedMessage
+                    result.observed == null -> unverifiedMessage
+                    result.unconfirmedRadios.isNotEmpty() ->
+                        mismatchMessage + "\n\n" + result.unconfirmedRadios.joinToString(", ")
+                    else -> null
+                }
+                result.observed?.let { observed ->
+                    previousData = observed
+                    MainModel.currentWifiData.value = observed
+                    if (tempState == requested) tempState = observed
+                }
+            } finally {
+                saving = false
             }
-            MainModel.currentWifiData.value = GlobalModel.httpClient.value?.getWifiData()
-            MainModel.currentClientData.value = GlobalModel.httpClient.value?.getDeviceData()
         }
     }
 
     LaunchedEffect(data) {
-        tempState = data
+        if (tempState == null || tempState == previousData) tempState = data
+        previousData = data
     }
 
     val items = remember(tempState) {
@@ -84,7 +108,7 @@ fun WifiConfigPage(
                     )
 
                     Text(
-                        text = stringResource(MR.strings.radio_advice),
+                        text = stringResource(MR.strings.radio_state_advice),
                     )
                 },
             ),
@@ -139,7 +163,7 @@ fun WifiConfigPage(
                         save()
                     }
                 },
-                enabled = tempState != data && tempState != null,
+                enabled = !saving && tempState != data && tempState != null,
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp),
                 colors = ButtonDefaults.buttonColors(
                     disabledContainerColor = MaterialTheme.colorScheme.onSurface
@@ -154,6 +178,18 @@ fun WifiConfigPage(
         },
         showBottomBarExpander = false,
         itemIsSelectable = { false },
+    )
+
+    InWindowAlertDialog(
+        showing = saveWarning != null,
+        title = { Text(stringResource(MR.strings.wifi_save_not_confirmed)) },
+        text = { Text(saveWarning.orEmpty()) },
+        buttons = {
+            TextButton(onClick = { saveWarning = null }) {
+                Text(stringResource(MR.strings.ok))
+            }
+        },
+        onDismissRequest = { saveWarning = null },
     )
 
     InWindowAlertDialog(

@@ -57,6 +57,11 @@
     <string name="sixGig_radio">6GHz Radio</string>
     <string name="band_steering">Band Steering</string>
     <string name="save">Save</string>
+    <string name="wifi_save_not_confirmed">Wi-Fi save not confirmed</string>
+    <string name="radio_state_advice">Hiding an SSID hides its network name; it does not turn the radio off. After saving, HINT checks the radio settings reported by the gateway. Use a Wi-Fi scanner to check actual broadcasts.</string>
+    <string name="wifi_save_failed">The Wi-Fi request did not complete successfully. Your pending settings are still shown. Check the connection before trying again.</string>
+    <string name="wifi_save_unverified">The request was sent, but the gateway settings could not be read back. Your pending settings are still shown. Radio shutdown is not confirmed. Reconnect and refresh to check.</string>
+    <string name="wifi_save_radio_mismatch">The gateway did not confirm the requested settings for the radios listed below. The gateway-reported settings have been reloaded. Hiding a network does not turn its radio off. A broadcast scan is needed to check actual radio activity.</string>
     <string name="advanced">Advanced</string>
 
     <string name="twoGig_transmission_power">2.4GHz Power</string>
