@@ -21,3 +21,13 @@ For live acceptance, use a wired management connection and retain a known recove
 - [Issue 133](https://github.com/zacharee/HINTControl/issues/133) concerns band steering retention.
 
 No upstream issue or pull request was submitted as part of this fork repair.
+
+## macOS input and access checks
+
+Use JetBrains Runtime 21 for the desktop application's runtime. In the local repair acceptance run, Microsoft OpenJDK 21.0.12.1 rendered the login screen and responded to accessible switch actions, but automated text entry did not reach the password field. Replacing only the bundled runtime with JBR 21.0.11 restored the editable accessibility field and successful gateway login. This establishes a compatibility difference for the tested build and automation path; it does not establish a general Microsoft JDK defect.
+
+When packaging with a different JDK, `jpackage --runtime-image` supports supplying a prepared runtime image. Keep the application launcher, bundle identifier, and signing identity stable during a runtime comparison, then verify the signature and actual app login. Distinct QA applications must not share a main executable UUID with the installed app; Apple documents that this can confuse local-network identity tracking.
+
+Check text entry and actual request initiation before diagnosing local-network permission. A prior permission screenshot does not establish a currently pending prompt. Do not repeatedly ask for a dialog that the user cannot see, reset privacy state, or create another app identity to resolve an unverified permission hypothesis.
+
+References: [JetBrains Runtime](https://github.com/JetBrains/JetBrainsRuntime), [jpackage runtime images](https://docs.oracle.com/en/java/javase/21/docs/specs/man/jpackage.html), [Apple app executable UUID guidance](https://developer.apple.com/documentation/technotes/tn3178-checking-for-and-resolving-build-uuid-problems).
